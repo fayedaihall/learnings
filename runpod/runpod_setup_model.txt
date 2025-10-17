@@ -1,0 +1,46 @@
+What I learned setting up and running MythoMax-L2-13B on RunPod with Text Generation WebUI:
+
+- Pick the right pod template and disk layout
+  - Use a GPU-ready image (e.g., Runpod PyTorch or an Oobabooga template) so CUDA is available.
+  - Set disk during creation only. Use Container Disk for temp, Volume Disk for persistent /workspace. Plan for 40–80+ GB for models and env.
+
+- Storage quotas vs. cluster capacity
+  - "df -h" shows the giant /workspace pool size shown is cluster-wide, not my pod’s quota. 
+  - "du -sh" shows the actual pod quota
+
+- Expose the correct HTTP port
+  - Port 8888 is Jupyter Lab; it’s not the WebUI endpoint.
+  - Add an HTTP Service for port 7860 to access Oobabooga externally during pod creation, or later by edit the pod.
+
+- Launch WebUI with the right flags
+  - Use: python server.py --model <path> --api --listen --listen-port 7860
+  - --listen makes it reachable via the proxy; --listen-port sets the port to match RunPod’s 7860 service.
+
+- Resolve missing Python deps cleanly
+  - Missing modules (rich, websockets.asyncio) are dependency/version issues:
+    - pip install rich
+    - pip install websockets or downgrade to websockets==10.4 if import path errors persist
+  - Prefer a virtual environment to avoid Debian/system-package conflicts:
+    - python3 -m venv venv && source venv/bin/activate && pip install -r requirements.txt
+
+- CUDA and exllamav2 requirements
+  - If CUDA isn’t at /usr/local/cuda, your image likely lacks CUDA; use a GPU ML template.
+  - exllamav2 may try to use flash-attn; it’s optional. If you want it:
+    - First pip install torch, then pip install flash_attn. Otherwise, ignore the warning and run without flash attention.
+
+- Correct model path matters
+  - Ensure --model points to the actual directory/file. Avoid doubled paths like user_data/models/user_data/models/….
+  - Verify with ls to find the exact model folder name under text-generation-webui/models or user_data/models.
+
+- Verification of success
+  - Once the server is running, RunPod shows the 7860 HTTP Service as Ready, and you can open the proxied URL to chat and use the API. You’ve reached the Text Generation Web UI successfully.[1]
+
+Practical checklist for repeatable success:
+- Create a new pod with enough Volume Disk (≥40–80 GB).
+- Use a CUDA-ready template (Runpod PyTorch).
+- Clone text-generation-webui; create venv; pip install -r requirements.txt.
+- Download the MythoMax-L2-13B model into models/ or user_data/models/.
+- Expose HTTP port 7860.
+- Launch with --api --listen --listen-port 7860 and the correct model path.
+
+[1](https://19t4s9uj4aoat9-7860.proxy.runpod.net/)
